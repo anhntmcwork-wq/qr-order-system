@@ -1,9 +1,5 @@
 // server/init-db.js
-const Database = require('better-sqlite3');
-const path = require('path');
-
-const dbPath = path.resolve(__dirname, 'qr_order.db');
-const db = new Database(dbPath);
+const db = require('./db');
 
 const sqlScript = `
     -- Xóa bảng cũ nếu tồn tại để đảm bảo dữ liệu sạch
@@ -33,12 +29,18 @@ const sqlScript = `
         ('Bánh Tiramisu', 55000, 3, 'https://placehold.co/100x100/D4B7A8/4A3728?text=Bánh', '{}');
 `;
 
-try {
-    db.exec(sqlScript);
-    console.log("Database đã được khởi tạo thành công với dữ liệu mẫu.");
-} catch (err) {
-    console.error("Lỗi khi khởi tạo database:", err.message);
-} finally {
-    // Đóng kết nối
-    db.close();
-}
+db.serialize(() => {
+    db.exec(sqlScript, (err) => {
+        if (err) {
+            console.error("Lỗi khi khởi tạo database:", err.message);
+        } else {
+            console.log("Database đã được khởi tạo thành công với dữ liệu mẫu.");
+        }
+        // Đóng kết nối
+        db.close((err) => {
+            if (err) {
+                console.error(err.message);
+            }
+        });
+    });
+});
