@@ -127,10 +127,9 @@
                 body: JSON.stringify({ status: newStatus })
             });
             if (!response.ok) throw new Error('Cập nhật thất bại');
-            // Giao diện sẽ được cập nhật thông qua sự kiện `order_update` từ socket
-        } catch (error) {
-            console.error('Lỗi khi cập nhật trạng thái:', error);
-            alert('Đã có lỗi xảy ra.');
+            // Không cần tự render nữa, vì server sẽ gửi socket "order_status_updated"
+        } catch (err) {
+            alert(err.message);
         }
     }
     
@@ -164,18 +163,12 @@
         playNotificationSound();
     });
     
-    socket.on('order_update', (data) => {
-        console.log('Nhận được cập nhật trạng thái:', data);
-        const { id, new_status } = data;
-        const orderIndex = orders.findIndex(o => o.id == id);
-        
-        if (orderIndex !== -1) {
-            if (new_status === 'paid') {
-                orders.splice(orderIndex, 1);
-            } else {
-                orders[orderIndex].status = new_status;
-            }
-            renderAllOrders();
+    socket.on('order_status_updated', ({ orderId, status }) => {
+        // Tìm đơn hàng trong mảng orders
+        const order = orders.find(o => o.id === orderId);
+        if (order) {
+            order.status = status;
+            renderAllOrders(); // render lại giao diện
         }
     });
 
