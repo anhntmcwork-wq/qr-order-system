@@ -5,8 +5,7 @@ const cors = require('cors');
 const path = require('path');
 const db = require('./db');
 
-// Gọi file init-db.js để khởi tạo database ngay khi server khởi động
-// Điều này giúp đảm bảo database luôn có sẵn trong môi trường stateless của Render
+// Khởi tạo database khi server start
 require('./init-db.js');
 
 const app = express();
@@ -14,7 +13,6 @@ app.use(cors());
 app.use(express.json());
 
 // --- PHỤC VỤ FILE FRONTEND ---
-// Sửa lại đường dẫn cho đúng
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 const server = http.createServer(app);
@@ -24,43 +22,39 @@ const io = new Server(server, {
 
 // --- API ENDPOINTS ---
 
-// [GET] Lấy toàn bộ thực đơn (Không đổi)
+// [GET] Lấy toàn bộ thực đơn
 app.get('/api/menu', (req, res) => {
-    const sql = `
-        SELECT p.id, p.name, p.price, c.name as category, p.image_url, p.options
-        FROM products p
-        JOIN categories c ON p.category_id = c.id
-        WHERE p.is_available = TRUE
-    `;
-    db.all(sql, [], (err, rows) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        // Chuyển đổi options từ string về lại object
+    try {
+        const sql = `
+            SELECT p.id, p.name, p.price, c.name as category, p.image_url, p.options
+            FROM products p
+            JOIN categories c ON p.category_id = c.id
+            WHERE p.is_available = TRUE
+        `;
+        const rows = db.prepare(sql).all();
         const products = rows.map(p => ({
             ...p,
             options: p.options ? JSON.parse(p.options) : {}
         }));
         res.json(products);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-// [GET] Lấy các đơn hàng đang hoạt động (SỬA LẠI CHO SQLITE)
+// [GET] Lấy các đơn hàng đang hoạt động
 app.get('/api/orders', (req, res) => {
-    const ordersSql = `
-        SELECT o.id, o.status, o.total_amount, o.note, o.created_at, t.name AS table_name
-        FROM orders o
-        JOIN tables t ON o.table_id = t.id
-        WHERE o.status IN ('new', 'preparing', 'served')
-        ORDER BY o.created_at ASC;
-    `;
-    db.all(ordersSql, [], (err, orders) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        if (orders.length === 0) {
-            return res.json([]);
-        }
+    try {
+        const ordersSql = `
+            SELECT o.id, o.status, o.total_amount, o.note, o.created_at, t.name AS table_name
+            FROM orders o
+            JOIN tables t ON o.table_id = t.id
+            WHERE o.status IN ('new', 'preparing', 'served')
+            ORDER BY o.created_at ASC;
+        `;
+        const orders = db.prepare(ordersSql).all();
+
+        if (orders.length === 0) return res.json([]);
 
         const orderIds = orders.map(o => o.id);
         const itemsSql = `
@@ -69,109 +63,87 @@ app.get('/api/orders', (req, res) => {
             JOIN products p ON oi.product_id = p.id
             WHERE oi.order_id IN (${orderIds.join(',')})
         `;
+        const items = db.prepare(itemsSql).all();
 
-        db.all(itemsSql, [], (err, items) => {
-            if (err) {
-                return res.status(500).json({ error: err.message });
-            }
-            const ordersWithItems = orders.map(order => ({
-                ...order,
-                items: items
-                    .filter(item => item.order_id === order.id)
-                    .map(item => ({
-                        name: item.name,
-                        qty: item.quantity,
-                        options: item.selected_options ? JSON.parse(item.selected_options) : {}
-                    }))
-            }));
-            res.json(ordersWithItems);
-        });
-    });
+        const ordersWithItems = orders.map(order => ({
+            ...order,
+            items: items
+                .filter(item => item.order_id === order.id)
+                .map(item => ({
+                    name: item.name,
+                    qty: item.quantity,
+                    options: item.selected_options ? JSON.parse(item.selected_options) : {}
+                }))
+        }));
+
+        res.json(ordersWithItems);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-// [POST] Tạo đơn hàng mới (Sửa để lấy thông tin chi tiết hơn)
+// [POST] Tạo đơn hàng mới
 app.post('/api/orders', (req, res) => {
-    const { tableNumber, items, totalAmount, note } = req.body;
-    if (!tableNumber || !items || items.length === 0) {
-        return res.status(400).json({ error: 'Thiếu thông tin bàn hoặc món ăn.' });
-    }
-
-    const orderSql = 'INSERT INTO orders (table_id, total_amount, note) VALUES (?, ?, ?)';
-    db.run(orderSql, [tableNumber, totalAmount, note], function(err) {
-        if (err) {
-            return res.status(500).json({ error: err.message });
+    try {
+        const { tableNumber, items, totalAmount, note } = req.body;
+        if (!tableNumber || !items || items.length === 0) {
+            return res.status(400).json({ error: 'Thiếu thông tin bàn hoặc món ăn.' });
         }
-        
-        const orderId = this.lastID;
-        const itemsSql = 'INSERT INTO order_items (order_id, product_id, quantity, selected_options) VALUES (?, ?, ?, ?)';
-        
-        const stmt = db.prepare(itemsSql);
+
+        const orderSql = 'INSERT INTO orders (table_id, total_amount, note) VALUES (?, ?, ?)';
+        const info = db.prepare(orderSql).run(tableNumber, totalAmount, note);
+        const orderId = info.lastInsertRowid;
+
+        const stmt = db.prepare('INSERT INTO order_items (order_id, product_id, quantity, selected_options) VALUES (?, ?, ?, ?)');
         items.forEach(item => {
             const optionsString = JSON.stringify(item.options || {});
             stmt.run(orderId, item.id, item.quantity, optionsString);
         });
-        stmt.finalize();
 
-        // Lấy lại đầy đủ thông tin đơn hàng vừa tạo để gửi qua socket
         const getNewOrderSql = `
             SELECT o.id, o.status, o.total_amount, o.note, o.created_at, t.name AS table_name
-            FROM orders o JOIN tables t ON o.table_id = t.id WHERE o.id = ?`;
+            FROM orders o JOIN tables t ON o.table_id = t.id WHERE o.id = ?
+        `;
+        const newOrder = db.prepare(getNewOrderSql).get(orderId);
 
-        db.get(getNewOrderSql, [orderId], (err, newOrder) => {
-            if (err) {
-                console.error("Lỗi khi lấy lại đơn hàng mới:", err);
-                return res.status(201).json({ id: orderId, message: "Tạo đơn hàng thành công nhưng không thể lấy lại chi tiết." });
-            }
-            
-            const detailedItems = items.map(item => ({
-                name: item.name,
-                qty: item.quantity,
-                options: item.options
-            }));
+        const detailedItems = items.map(item => ({
+            name: item.name,
+            qty: item.quantity,
+            options: item.options
+        }));
 
-            const createdOrderPayload = { ...newOrder, items: detailedItems };
+        const createdOrderPayload = { ...newOrder, items: detailedItems };
 
-            io.emit('new_order', createdOrderPayload); // Gửi sự kiện cho trang nhân viên
-            res.status(201).json(createdOrderPayload);
-        });
-    });
-});
+        io.emit('new_order', createdOrderPayload);
+        res.status(201).json(createdOrderPayload);
 
-
-// [PATCH] Cập nhật trạng thái đơn hàng (VIẾT MỚI)
-app.patch('/api/orders/:id/status', (req, res) => {
-    const { status } = req.body;
-    const orderId = req.params.id;
-    const allowedStatus = ['preparing', 'served', 'paid'];
-
-    if (!status || !allowedStatus.includes(status)) {
-        return res.status(400).json({ error: 'Trạng thái không hợp lệ.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
-
-    const sql = 'UPDATE orders SET status = ? WHERE id = ?';
-    db.run(sql, [status, orderId], function(err) {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        if (this.changes === 0) {
-            return res.status(404).json({ error: 'Không tìm thấy đơn hàng.' });
-        }
-
-        const updatedOrder = { id: orderId, new_status: status };
-        io.emit('order_update', updatedOrder); // Gửi sự kiện cập nhật
-        res.json(updatedOrder);
-    });
 });
 
+// [PATCH] Cập nhật trạng thái đơn hàng
+app.patch('/api/orders/:id/status', (req, res) => {
+    try {
+        const { status } = req.body;
+        const orderId = req.params.id;
+        const allowedStatus = ['preparing', 'served', 'paid'];
 
-// --- SOCKET.IO CONNECTION ---
-io.on('connection', (socket) => {
-  console.log('Một nhân viên đã kết nối:', socket.id);
-  socket.on('disconnect', () => {
-    console.log('Nhân viên đã ngắt kết nối:', socket.id);
-  });
+        if (!status || !allowedStatus.includes(status)) {
+            return res.status(400).json({ error: 'Trạng thái không hợp lệ.' });
+        }
+
+        const sql = 'UPDATE orders SET status = ? WHERE id = ?';
+        db.prepare(sql).run(status, orderId);
+
+        io.emit('order_status_updated', { orderId, status });
+        res.json({ message: 'Cập nhật trạng thái thành công.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-const PORT = process.env.PORT || 3001;
-server.listen(PORT, '0.0.0.0', () => console.log(`Server is running on port ${PORT}`));
-// server.listen(PORT, () => console.log(`Server đang chạy tại http://localhost:${PORT}`));
+const PORT = process.env.PORT || 10000;
+server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
