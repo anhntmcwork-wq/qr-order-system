@@ -29,18 +29,12 @@ const sqlScript = `
         ('Bánh Tiramisu', 55000, 3, 'https://placehold.co/100x100/D4B7A8/4A3728?text=Bánh', '{}');
 `;
 
-db.serialize(() => {
-    db.exec(sqlScript, (err) => {
-        if (err) {
-            console.error("Lỗi khi khởi tạo database:", err.message);
-        } else {
-            console.log("Database đã được khởi tạo thành công với dữ liệu mẫu.");
-        }
-        // Đóng kết nối
-        db.close((err) => {
-            if (err) {
-                console.error(err.message);
-            }
-        });
-    });
-});
+try {
+    db.exec(sqlScript);
+    console.log("Database đã được khởi tạo thành công với dữ liệu mẫu.");
+} catch (err) {
+    console.error("Lỗi khi khởi tạo database:", err.message);
+} finally {
+    // Đóng kết nối
+    db.close();
+}
