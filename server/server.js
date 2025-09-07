@@ -6,12 +6,12 @@ const path = require('path');
 const db = require('./db');
 
 // Gọi file init-db.js để khởi tạo database ngay khi server khởi động
+// Điều này giúp đảm bảo database luôn có sẵn trong môi trường stateless của Render
 require('./init-db.js');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-
 
 // --- PHỤC VỤ FILE FRONTEND ---
 // Sửa lại đường dẫn cho đúng
