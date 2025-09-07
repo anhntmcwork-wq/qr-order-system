@@ -164,11 +164,10 @@
     });
     
     socket.on('order_status_updated', ({ orderId, status }) => {
-        // Tìm đơn hàng trong mảng orders
         const order = orders.find(o => o.id === orderId);
         if (order) {
             order.status = status;
-            renderAllOrders(); // render lại giao diện
+            renderAllOrders();  // render lại UI với trạng thái mới
         }
     });
 

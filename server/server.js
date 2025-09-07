@@ -135,8 +135,9 @@ app.patch('/api/orders/:id/status', (req, res) => {
 
         const sql = 'UPDATE orders SET status = ? WHERE id = ?';
         db.prepare(sql).run(status, orderId);
+        io.emit('order_status_updated', { orderId: parseInt(orderId, 10), status });
 
-        io.emit('order_status_updated', { orderId, status });
+        // io.emit('order_status_updated', { orderId, status });
         res.json({ message: 'Cập nhật trạng thái thành công.' });
     } catch (err) {
         res.status(500).json({ error: err.message });
