@@ -289,7 +289,7 @@
 
     async function fetchMenu() {
         try {
-            const response = await fetch(`${API_URL}/api/menu`);
+            const response = await fetch(`${API_URL}api/menu`);
             if (!response.ok) throw new Error('Network response was not ok');
             menu = await response.json();
             renderCategories();
