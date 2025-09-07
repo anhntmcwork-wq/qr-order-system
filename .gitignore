@@ -1,0 +1,8 @@
+# Dependencies
+/node_modules
+
+# Database file
+/server/qr_order.db
+
+# Environment variables
+.env
