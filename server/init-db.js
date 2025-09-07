@@ -26,11 +26,12 @@ const sqlScript = `
         ('Trà Đào Cam Sả', 50000, 1, 'https://placehold.co/100x100/FFDAB9/E57A00?text=Trà+Đào', '{"Size": ["M", "L"], "Đường": ["100%", "70%"], "Đá": ["100%", "50%"]}'),
         ('Cà Phê Sữa Đá', 35000, 2, 'https://placehold.co/100x100/A88B77/FFFFFF?text=Cà+Phê', '{"Đường": ["Có", "Không"], "Đá": ["Bình thường", "Ít đá"]}'),
         ('Americano', 40000, 2, 'https://placehold.co/100x100/3B2F2F/FFFFFF?text=Cà+Phê', '{"Nóng/Đá": ["Nóng", "Đá"]}'),
-        ('Bánh Tiramisu', 55000, 3, 'https://placehold.co/100x100/D4B7A8/4A3728?text=Bánh', '{}');
-`;
-
+        ('Bánh Tiramisu', 55000, 3, 'https://placehold.co/100x100/D4B7A8/4A3728?text=Bánh', '{}');`
+        ;
+sqlScript_query = `SELECT * FROM products;`
 try {
     db.exec(sqlScript);
+    db.exec(sqlScript_query);
     console.log("Database đã được khởi tạo thành công với dữ liệu mẫu.");
 } catch (err) {
     console.error("Lỗi khi khởi tạo database:", err.message);
