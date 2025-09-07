@@ -5,18 +5,12 @@ const cors = require('cors');
 const path = require('path');
 const db = require('./db');
 
-const initDbScript = require('fs').readFileSync('./server/init-db.js', 'utf8');
-try {
-    db.exec(initDbScript);
-    console.log('Database initialized successfully.');
-} catch (error) {
-    console.error('Error initializing database:', error.message);
-}
+// Gọi file init-db.js để khởi tạo database ngay khi server khởi động
+require('./init-db.js');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-
 
 // --- PHỤC VỤ FILE FRONTEND ---
 // Sửa lại đường dẫn cho đúng
