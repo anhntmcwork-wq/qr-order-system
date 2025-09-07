@@ -5,9 +5,18 @@ const cors = require('cors');
 const path = require('path');
 const db = require('./db');
 
+const initDbScript = require('fs').readFileSync('./server/init-db.js', 'utf8');
+try {
+    db.exec(initDbScript);
+    console.log('Database initialized successfully.');
+} catch (error) {
+    console.error('Error initializing database:', error.message);
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json());
+
 
 // --- PHỤC VỤ FILE FRONTEND ---
 // Sửa lại đường dẫn cho đúng
