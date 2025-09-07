@@ -1,0 +1,16 @@
+{
+  "name": "qr-order-system",
+  "version": "1.0.0",
+  "description": "A QR code ordering system",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "init-db": "node server/init-db.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5",
+    "sqlite3": "^5.1.7"
+  }
+}

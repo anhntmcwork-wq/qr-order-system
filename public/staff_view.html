@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Quản lý Đơn hàng</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card-enter { animation: cardEnter 0.5s cubic-bezier(0.250, 0.460, 0.450, 0.940) both; }
+        @keyframes cardEnter {
+            0% { transform: translateY(20px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        .status-new { border-left: 5px solid #3b82f6; } /* blue */
+        .status-preparing { border-left: 5px solid #f97316; } /* orange */
+        .status-served { border-left: 5px solid #16a34a; } /* green */
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <header class="bg-white shadow-sm sticky top-0 z-10 p-4">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-xl font-bold text-gray-800">Dashboard Đơn Hàng</h1>
+            <p class="text-sm text-gray-500">Cập nhật theo thời gian thực</p>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto p-2 sm:p-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="bg-gray-200 rounded-lg p-3">
+                <h2 class="font-semibold text-gray-700 mb-3 text-center">Mới (<span id="new-count">0</span>)</h2>
+                <div id="col-new" class="space-y-3 min-h-[100px]"></div>
+            </div>
+
+            <div class="bg-gray-200 rounded-lg p-3">
+                <h2 class="font-semibold text-gray-700 mb-3 text-center">Đang Chuẩn Bị (<span id="preparing-count">0</span>)</h2>
+                <div id="col-preparing" class="space-y-3 min-h-[100px]"></div>
+            </div>
+
+            <div class="bg-gray-200 rounded-lg p-3">
+                <h2 class="font-semibold text-gray-700 mb-3 text-center">Đã Phục Vụ (<span id="served-count">0</span>)</h2>
+                <div id="col-served" class="space-y-3 min-h-[100px]"></div>
+            </div>
+        </div>
+    </main>
+    
+<script>
+    const API_URL = 'http://localhost:3001';
+    let orders = [];
+
+    const newOrderSound = new Audio('https://cdn.freesound.org/previews/415/415763_6142146-lq.mp3');
+    newOrderSound.volume = 0.5;
+
+    function formatCurrency(amount) {
+        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+    }
+    
+    function createOrderCard(order) {
+        const card = document.createElement('div');
+        card.id = `order-${order.id}`;
+        card.className = `bg-white rounded-lg shadow p-4 status-${order.status} card-enter`;
+        
+        const itemsHtml = order.items.map(item => {
+            const optionsString = item.options ? Object.values(item.options).join(', ') : '';
+            const optionsHtml = optionsString ? `<span class="text-xs text-gray-500 ml-2">(${optionsString})</span>` : '';
+            return `<li class="text-sm text-gray-600">${item.qty} x ${item.name} ${optionsHtml}</li>`;
+        }).join('');
+
+        const noteHtml = order.note ? `<p class="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded"><strong>Ghi chú:</strong> ${order.note}</p>` : '';
+        
+        let buttonsHtml = '';
+        if (order.status === 'new') {
+            buttonsHtml = `<button onclick="updateStatus(${order.id}, 'preparing')" class="flex-1 bg-blue-500 text-white text-sm font-semibold py-2 px-3 rounded hover:bg-blue-600">Xác nhận</button>`;
+        } else if (order.status === 'preparing') {
+            buttonsHtml = `<button onclick="updateStatus(${order.id}, 'served')" class="flex-1 bg-orange-500 text-white text-sm font-semibold py-2 px-3 rounded hover:bg-orange-600">Đã phục vụ</button>`;
+        } else if (order.status === 'served') {
+            buttonsHtml = `<button onclick="updateStatus(${order.id}, 'paid')" class="flex-1 bg-green-500 text-white text-sm font-semibold py-2 px-3 rounded hover:bg-green-600">Đã thanh toán</button>`;
+        }
+
+        card.innerHTML = `
+            <div class="flex justify-between items-start">
+                <div>
+                    <h3 class="font-bold text-lg">${order.table_name}</h3>
+                    <p class="text-gray-500 text-sm">#${order.id}</p>
+                </div>
+                <span class="font-bold text-lg text-indigo-600">${formatCurrency(order.total_amount)}</span>
+            </div>
+            <ul class="mt-2 list-disc list-inside">${itemsHtml}</ul>
+            ${noteHtml}
+            <div class="mt-4 flex space-x-2">
+                ${buttonsHtml}
+            </div>
+        `;
+        return card;
+    }
+
+    function renderAllOrders() {
+        document.getElementById('col-new').innerHTML = '';
+        document.getElementById('col-preparing').innerHTML = '';
+        document.getElementById('col-served').innerHTML = '';
+
+        orders.forEach(order => {
+            const column = document.getElementById(`col-${order.status}`);
+            if (column) {
+                const card = createOrderCard(order);
+                column.prepend(card); // Dùng prepend để đơn mới nhất luôn ở trên cùng
+            }
+        });
+        
+        updateCounts();
+    }
+    
+    function updateCounts() {
+        document.getElementById('new-count').textContent = orders.filter(o => o.status === 'new').length;
+        document.getElementById('preparing-count').textContent = orders.filter(o => o.status === 'preparing').length;
+        document.getElementById('served-count').textContent = orders.filter(o => o.status === 'served').length;
+    }
+
+    async function updateStatus(orderId, newStatus) {
+        try {
+            const response = await fetch(`${API_URL}/api/orders/${orderId}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            });
+            if (!response.ok) throw new Error('Cập nhật thất bại');
+            // Giao diện sẽ được cập nhật thông qua sự kiện `order_update` từ socket
+        } catch (error) {
+            console.error('Lỗi khi cập nhật trạng thái:', error);
+            alert('Đã có lỗi xảy ra.');
+        }
+    }
+    
+    function playNotificationSound() {
+        newOrderSound.play().catch(error => console.log("Cần tương tác của người dùng để bật âm thanh."));
+    }
+
+    async function fetchInitialOrders() {
+        try {
+            const response = await fetch(`${API_URL}/api/orders`);
+            if (!response.ok) throw new Error('Không thể tải danh sách đơn hàng');
+            orders = await response.json();
+            renderAllOrders();
+        } catch (error) {
+            console.error('Lỗi tải đơn hàng ban đầu:', error);
+            document.getElementById('col-new').innerHTML = `<p class="text-red-500">${error.message}</p>`;
+        }
+    }
+
+    // --- KẾT NỐI SOCKET.IO ---
+    const socket = io(API_URL);
+
+    socket.on('connect', () => {
+        console.log('Đã kết nối tới server qua Socket.IO, ID:', socket.id);
+    });
+
+    socket.on('new_order', (newOrder) => {
+        console.log('Nhận được đơn hàng mới:', newOrder);
+        orders.push(newOrder);
+        renderAllOrders();
+        playNotificationSound();
+    });
+    
+    socket.on('order_update', (data) => {
+        console.log('Nhận được cập nhật trạng thái:', data);
+        const { id, new_status } = data;
+        const orderIndex = orders.findIndex(o => o.id == id);
+        
+        if (orderIndex !== -1) {
+            if (new_status === 'paid') {
+                orders.splice(orderIndex, 1);
+            } else {
+                orders[orderIndex].status = new_status;
+            }
+            renderAllOrders();
+        }
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Đã mất kết nối Socket.IO');
+    });
+
+    // --- KHỞI CHẠY ---
+    window.onload = fetchInitialOrders;
+</script>
+</body>
+</html>

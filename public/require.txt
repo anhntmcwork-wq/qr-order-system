@@ -1,0 +1,149 @@
+Tài Liệu Thiết Kế Sản Phẩm v1.1: Hệ Thống Order Tại Bàn (Phiên bản Tinh chỉnh)
+
+Thay đổi chính so với phiên bản trước:
+
+
+
+Tập trung vào mobile: Giao diện cho nhân viên/quản lý phải được ưu tiên thiết kế cho điện thoại.
+
+Loại bỏ thanh toán online: Quy trình thanh toán được đơn giản hóa, hệ thống chỉ cần tính tổng tiền.
+
+Kiến trúc đơn giản: Tối ưu cho việc vận hành một quán duy nhất.
+
+1. Tổng Quan & Tầm Nhìn Sản Phẩm (Không đổi)
+
+Xây dựng hệ thống đặt món qua QR Code để tối ưu hóa quy trình vận hành cho một quán trà sữa/cà phê, tập trung vào trải nghiệm nhanh gọn cho cả khách hàng và nhân viên.
+
+2. Đối Tượng Người Dùng & Vai Trò (Đã xác nhận)
+
+Khách hàng: Dùng điện thoại cá nhân để quét QR, xem menu và đặt món.
+
+Nhân viên Phục vụ/Pha chế (Staff): Dùng điện thoại để nhận và quản lý đơn hàng.
+
+Quản lý Quán (Admin): Dùng điện thoại hoặc máy tính để quản lý thực đơn, bàn và xem tổng quan.
+
+3. Luồng Hoạt Động Chính (Đã tinh chỉnh)
+
+3.1. Luồng của Khách hàng (Không đổi)
+
+
+
+Quét QR tại bàn.
+
+Truy cập menu (responsive trên điện thoại).
+
+Chọn món, tùy chỉnh và thêm vào giỏ hàng.
+
+Xác nhận và gửi đơn hàng (không có bước thanh toán).
+
+Nhận thông báo đặt hàng thành công.
+
+3.2. Luồng của Nhân Viên (Tập trung vào điện thoại)
+
+
+
+Nhận thông báo: Điện thoại của nhân viên nhận được thông báo đẩy (push notification) hoặc có âm báo trên trang quản lý khi có đơn mới.
+
+Xem đơn hàng: Mở trang quản lý trên trình duyệt điện thoại, thấy ngay đơn hàng mới nhất ở trên cùng.
+
+Hiển thị rõ: Bàn số mấy, danh sách món, ghi chú.
+
+Xử lý đơn hàng:
+
+Chạm vào nút "Xác nhận" để chuyển trạng thái đơn sang Đang chuẩn bị.
+
+Sau khi mang món ra cho khách, chạm vào nút "Đã phục vụ".
+
+Thanh toán (Thủ công):
+
+Khi khách gọi thanh toán, nhân viên đến bàn và báo tổng số tiền (xem lại trên app).
+
+Sau khi nhận tiền, nhân viên vào app và bấm nút "Đã thanh toán" để hoàn tất đơn hàng.
+
+4. Phân Rã Tính Năng (Ưu tiên cho MVP)
+
+Module 1: Giao diện Khách hàng (Client-Side)
+
+
+
+Bắt buộc có:
+
+Giao diện menu và giỏ hàng tối ưu 100% cho mobile.
+
+Hiển thị sản phẩm theo danh mục (Trà sữa, Bánh...).
+
+Popup chọn tùy chọn cho sản phẩm (size, đường, đá).
+
+Nút gửi đơn hàng đơn giản, có ô ghi chú.
+
+Module 2: Giao diện Nhân viên/Quản lý (Admin Panel - Mobile First)
+
+
+
+Bắt buộc có:
+
+Giao diện Dashboard trên di động: Đây là màn hình quan trọng nhất. Phải thiết kế để nhân viên thao tác bằng một tay. Các nút phải to, rõ ràng.
+
+Danh sách đơn hàng real-time: Tự động cập nhật mà không cần tải lại trang. Mỗi đơn hàng là một "thẻ" (card) với các thông tin cốt lõi: Số bàn, tổng tiền, trạng thái.
+
+Thông báo đơn mới: Âm thanh "ting" hoặc rung khi có đơn mới.
+
+Các nút hành động nhanh: Trên mỗi thẻ đơn hàng, có các nút để chuyển trạng thái nhanh: Xác nhận -> Đã phục vụ -> Đã thanh toán.
+
+Trang quản lý thực đơn (CRUD): Giao diện đơn giản để Admin có thể thêm/sửa/ẩn món ngay trên điện thoại (ví dụ: khi một món hết hàng).
+
+Trang quản lý bàn & QR Code: Cho phép Admin thêm bàn và hệ thống tự sinh ra một link QR Code để có thể chụp màn hình/in ra.
+
+5. Kiến Trúc & Công Nghệ Gợi Ý (Không đổi, nhấn mạnh mobile)
+
+Frontend: ReactJS hoặc VueJS. Cần một thư viện UI component mạnh về mobile như Ant Design Mobile hoặc Material-UI để đẩy nhanh tiến độ.
+
+Backend: Node.js (Express) + Socket.IO (cho tính năng real-time) là một lựa chọn rất phù hợp và hiệu quả.
+
+Database: PostgreSQL hoặc MySQL. Với quy mô một quán, không cần quá phức tạp.
+
+Deployment:
+
+Frontend: Vercel/Netlify (Miễn phí và nhanh).
+
+Backend: Heroku/DigitalOcean/Vietnami VPS (Chi phí thấp).
+
+6. Kế Hoạch Phát Triển Tinh Gọn (Roadmap)
+
+Giai đoạn 1: Xây dựng Lõi (Dự kiến 2-3 tuần)
+
+
+
+Dev 1 (Backend):
+
+Thiết lập database.
+
+Viết API cho: Lấy menu, Tạo đơn hàng, Lấy danh sách đơn hàng.
+
+Tích hợp WebSocket/Socket.IO để đẩy đơn hàng mới về client.
+
+Dev 2 (Frontend):
+
+Dựng giao diện Menu và Giỏ hàng cho khách.
+
+Dựng giao diện Dashboard trên di động cho nhân viên, kết nối WebSocket để nhận đơn hàng real-time.
+
+Mục tiêu: Khách đặt được món, nhân viên nhận được đơn trên điện thoại.
+
+Giai đoạn 2: Hoàn Thiện Vận Hành (Dự kiến 1-2 tuần)
+
+
+
+Dev 1 (Backend):
+
+Hoàn thiện API để cập nhật trạng thái đơn hàng.
+
+Xây dựng API cho việc quản lý Món ăn và Bàn (CRUD).
+
+Dev 2 (Frontend):
+
+Hoàn thiện các nút thay đổi trạng thái trên Dashboard.
+
+Xây dựng các trang quản lý Món ăn, Bàn cho Admin (vẫn ưu tiên giao diện mobile).
+
+Mục tiêu: Hệ thống chạy trơn tru từ A-Z, Admin có thể tự quản lý menu.
